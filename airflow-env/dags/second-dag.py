@@ -1,7 +1,6 @@
-"""Download flowers dataset, compute volume, then branch on a random condition."""
+"""Download flowers dataset, compute volume, then branch on dataset size."""
 
 import csv
-import random
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -25,7 +24,7 @@ default_args = {
 }
 
 
-def add_volume_column() -> None:
+def add_volume_column() -> int:
     """Read the downloaded CSV, compute volume, and write the enriched file."""
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -51,24 +50,20 @@ def add_volume_column() -> None:
             row_count += 1
 
     print(f"Wrote {row_count} rows to {OUTPUT_PATH}")
+    ti.xcom_push(key="row_count", value=row_count)
 
 
-def print_result_path() -> None:
-    """Log the location of the processed dataset."""
+def choose_message_branch(ti) -> str:
+    """Choose the next task based on the processed dataset size."""
 
-    print(f"Processed file available at: {OUTPUT_PATH}")
-
-
-def choose_message_branch() -> str:
-    """Pick one branch at random to keep the example simple."""
-
-    return random.choice(["belle_journee_pour_ramasser_des_fleurs", "malheureusement_il_faut_travailler"])
+    row_count = ti.xcom_pull(task_ids="process_data")
+    return "big_dataset" if row_count > 1000 else "small_dataset"
 
 
 with DAG(
-    "second-dag-random",
+    "second-dag-size",
     default_args=default_args,
-    description="Download a flower dataset and add a volume column",
+    description="Download a flower dataset and branch on dataset size",
     schedule=timedelta(days=1),
     start_date=datetime(2025, 3, 20),
     catchup=False,
@@ -89,20 +84,17 @@ with DAG(
         python_callable=choose_message_branch,
     )
 
-    belle_journee_pour_ramasser_des_fleurs = BashOperator(
-        task_id="belle_journee_pour_ramasser_des_fleurs",
-        bash_command='echo "Belle journée pour ramasser des fleurs"',
+    big_dataset = BashOperator(
+        task_id="big_dataset",
+        bash_command='echo "Big dataset"',
     )
 
-    malheureusement_il_faut_travailler = BashOperator(
-        task_id="malheureusement_il_faut_travailler",
-        bash_command='echo "Malheureusement il faut travailler"',
+    small_dataset = BashOperator(
+        task_id="small_dataset",
+        bash_command='echo "Small dataset"',
     )
 
     download_data >> process_data >> choose_branch
-    choose_branch >> [
-        belle_journee_pour_ramasser_des_fleurs,
-        malheureusement_il_faut_travailler,
-    ]
+    choose_branch >> [big_dataset, small_dataset]
 
     dag.doc_md = __doc__
