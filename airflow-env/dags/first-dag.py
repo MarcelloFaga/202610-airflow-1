@@ -6,8 +6,8 @@ import textwrap
 from datetime import datetime, timedelta
 
 from airflow.models.dag import DAG
-#from airflow.operators.bash import BashOperator
 from airflow.providers.standard.operators.bash import BashOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 default_args={
         "depends_on_past": False,
@@ -30,6 +30,16 @@ default_args={
         # 'trigger_rule': 'all_success'
     }
 
+
+def print_project_message():
+    print("Airflow project is running a Python task.")
+
+
+def summarize_run(**context):
+    print(f"dag_id={context['dag'].dag_id}")
+    print(f"task_id={context['task'].task_id}")
+    print(f"run_id={context['run_id']}")
+
 with DAG(
     "first-dag",
     # These args will get passed on to each operator
@@ -39,7 +49,7 @@ with DAG(
     schedule=timedelta(days=1),
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["example"],
+    tags=["example", "Yeyyyyy"],
 ) as dag:
 
     t1 = BashOperator(
@@ -47,11 +57,14 @@ with DAG(
         bash_command="date",
     )
 
-    t2 = BashOperator(
-        task_id="sleep",
-        depends_on_past=False,
-        bash_command="sleep 5",
-        retries=3,
+    t2 = PythonOperator(
+        task_id="python_message",
+        python_callable=print_project_message,
+    )
+
+    t3 = PythonOperator(
+        task_id="python_summary",
+        python_callable=summarize_run,
     )
     t1.doc_md = textwrap.dedent(
         """\
@@ -73,12 +86,12 @@ with DAG(
     """
     )
 
-    t3 = BashOperator(
+    t4 = BashOperator(
         task_id="templated",
         depends_on_past=False,
         bash_command=templated_command,
     )
 
-    t1 >> [t2, t3]
+    t1 >> [t2, t3] >> t4
 
     dag.doc_md = __doc__
