@@ -24,7 +24,7 @@ default_args = {
 }
 
 
-def add_volume_column() -> int:
+def add_volume_column(ti) -> None:
     """Read the downloaded CSV, compute volume, and write the enriched file."""
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -56,7 +56,7 @@ def add_volume_column() -> int:
 def choose_message_branch(ti) -> str:
     """Choose the next task based on the processed dataset size."""
 
-    row_count = ti.xcom_pull(task_ids="process_data")
+    row_count = ti.xcom_pull(task_ids="process_data", key="row_count")
     return "big_dataset" if row_count > 1000 else "small_dataset"
 
 
