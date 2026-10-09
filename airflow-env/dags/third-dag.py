@@ -16,9 +16,9 @@ with DAG(
     "third-dag",
     default_args=default_args,
     description="Print a secret message",
-    schedule=None,
-    start_date=datetime(2025, 3, 20),
-    catchup=False,
+    schedule="@daily",
+    start_date=datetime(2026, 10, 7),
+    catchup=True,
     tags=["what a bash"],
 ) as dag:
     print_message = BashOperator(
