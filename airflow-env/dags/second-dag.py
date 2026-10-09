@@ -1,12 +1,13 @@
-"""Download flowers dataset and compute volume for each flower."""  
+"""Download flowers dataset, compute volume, then branch on a random condition."""
 
 import csv
+import random
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from airflow.models.dag import DAG
 from airflow.providers.standard.operators.bash import BashOperator
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import BranchPythonOperator, PythonOperator
 
 DATA_URL = "https://raw.githubusercontent.com/CourseMaterial/DataWrangling/main/flowerdataset.csv"
 INPUT_PATH = Path("/opt/airflow/dags/input/flowerdataset.csv")
@@ -58,8 +59,14 @@ def print_result_path() -> None:
     print(f"Processed file available at: {OUTPUT_PATH}")
 
 
+def choose_message_branch() -> str:
+    """Pick one branch at random to keep the example simple."""
+
+    return random.choice(["belle_journee_pour_ramasser_des_fleurs", "malheureusement_il_faut_travailler"])
+
+
 with DAG(
-    "second-dag",
+    "second-dag-random",
     default_args=default_args,
     description="Download a flower dataset and add a volume column",
     schedule=timedelta(days=1),
@@ -77,11 +84,25 @@ with DAG(
         python_callable=add_volume_column,
     )
 
-    show_result = PythonOperator(
-        task_id="show_result",
-        python_callable=print_result_path,
+    choose_branch = BranchPythonOperator(
+        task_id="choose_branch",
+        python_callable=choose_message_branch,
     )
 
-    download_data >> process_data >> show_result
+    belle_journee_pour_ramasser_des_fleurs = BashOperator(
+        task_id="belle_journee_pour_ramasser_des_fleurs",
+        bash_command='echo "Belle journée pour ramasser des fleurs"',
+    )
+
+    malheureusement_il_faut_travailler = BashOperator(
+        task_id="malheureusement_il_faut_travailler",
+        bash_command='echo "Malheureusement il faut travailler"',
+    )
+
+    download_data >> process_data >> choose_branch
+    choose_branch >> [
+        belle_journee_pour_ramasser_des_fleurs,
+        malheureusement_il_faut_travailler,
+    ]
 
     dag.doc_md = __doc__
